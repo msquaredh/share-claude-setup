@@ -16,8 +16,8 @@ chmod +x install.sh
 
 You'll be asked for:
 - **Workspace dir** — absolute path to the folder containing your repos (e.g. `/Users/alice/code`)
-- **Branch prefix** — your username or initials, used for branch names like `alice/fmx-1234-add-rate-limits`
-- **Jira project key** — e.g. `FMX`, or `none` if you don't use Jira
+- **Branch prefix** — your username or initials, used for branch names like `alice/abc-1234-add-rate-limits`
+- **Jira project key** — e.g. `ABC`, or `none` if you don't use Jira
 
 The script writes two files:
 - `<workspace>/CLAUDE.md`
@@ -44,7 +44,7 @@ If `Jira: none` in the plan's ship metadata, Jira is skipped entirely.
 
 ## How the flow works
 
-1. Ask for a plan: `/plan add rate limits to api-service and worker-service for FMX-1234`
+1. Ask for a plan: `/plan add rate limits to api-service and worker-service for ABC-1234`
 2. Claude fetches all repos, drafts a plan with worktrees, phases, and ship metadata. You review and accept.
 3. Claude implements the changes in worktrees at `<workspace>/worktrees/<branch>/<repo>`.
 4. You review the diff.

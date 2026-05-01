@@ -16,7 +16,7 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 read -rp "Workspace dir (absolute path, e.g. /Users/alice/code): " WORKSPACE_DIR
 read -rp "Branch prefix (your username, e.g. alice): " BRANCH_PREFIX
-read -rp "Jira project key (e.g. FMX, or 'none' if no Jira): " JIRA_KEY
+read -rp "Jira project key (e.g. ABC, or 'none' if no Jira): " JIRA_KEY
 
 if [[ -z "$WORKSPACE_DIR" || -z "$BRANCH_PREFIX" || -z "$JIRA_KEY" ]]; then
   echo "All three fields are required." >&2
