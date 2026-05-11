@@ -6,6 +6,7 @@ Shareable version of Marlon's planning / shipping workflow for multi-repo work w
 
 - **`/plan`** — Not a file. Claude Code's built-in plan mode, shaped by `CLAUDE.md`. Plans auto-scaffold worktree setup, branch naming, phased implementation, and ship metadata.
 - **`/ship`** — Slash command at `.claude/commands/ship.md`. Reads the plan's `## Ship Metadata`, commits, pushes, opens PRs across all listed repos, and transitions Jira.
+- **`/update-repo-map`** — Slash command at `.claude/commands/update-repo-map.md`. Scans your workspace for new repos and edits `CLAUDE.md` to add them in the existing category style, classified from their README + build manifest. Flags stale entries without removing them.
 
 ## Install
 
@@ -19,9 +20,10 @@ You'll be asked for:
 - **Branch prefix** — your username or initials, used for branch names like `alice/abc-1234-add-rate-limits`
 - **Jira project key** — e.g. `ABC`, or `none` if you don't use Jira
 
-The script writes two files:
+The script writes three files:
 - `<workspace>/CLAUDE.md`
 - `<workspace>/.claude/commands/ship.md`
+- `<workspace>/.claude/commands/update-repo-map.md`
 
 Open Claude Code with `<workspace>` as its CWD. Type `/ship` to confirm it's loaded.
 
@@ -35,6 +37,8 @@ Example:
 - **worker-service** — Kafka consumer that enriches account events
 - **shared-lib** — DTOs shared by api-service and worker-service
 ```
+
+Or skip the manual fill-in and run `/update-repo-map` — Claude will scan your workspace, classify each repo from its README + build manifest, and write the entries for you. Re-run it any time you clone a new repo.
 
 ## Jira / Atlassian MCP
 
@@ -66,6 +70,7 @@ Edit `.claude/commands/ship.md` to customize commit message format, PR title for
 |---|---|
 | `CLAUDE.md` | Templated workspace instructions |
 | `ship.md` | Templated `/ship` slash command |
+| `update-repo-map.md` | Templated `/update-repo-map` slash command |
 | `install.sh` | Renders the templates into your workspace |
 | `README.md` | This file |
 

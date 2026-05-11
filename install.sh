@@ -44,11 +44,14 @@ mkdir -p "$WORKSPACE_DIR/.claude/commands"
 
 render "$here/CLAUDE.md" > "$WORKSPACE_DIR/CLAUDE.md"
 render "$here/ship.md" > "$WORKSPACE_DIR/.claude/commands/ship.md"
+render "$here/update-repo-map.md" > "$WORKSPACE_DIR/.claude/commands/update-repo-map.md"
 
 echo
 echo "Installed:"
 echo "  $WORKSPACE_DIR/CLAUDE.md"
 echo "  $WORKSPACE_DIR/.claude/commands/ship.md"
+echo "  $WORKSPACE_DIR/.claude/commands/update-repo-map.md"
 echo
 echo "Open Claude Code with $WORKSPACE_DIR as CWD. Type /ship to confirm it loaded."
-echo "Edit $WORKSPACE_DIR/CLAUDE.md to fill in the Repo Map section with your repos."
+echo "Edit $WORKSPACE_DIR/CLAUDE.md to fill in the Repo Map section with your repos,"
+echo "or run /update-repo-map to have Claude scan the workspace and populate it."
