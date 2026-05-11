@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Render templated CLAUDE.md + ship.md into your workspace.
+# Render templated CLAUDE.md, ship.md, and update-repo-map.md into your workspace.
 #
 # Usage:
 #   ./install.sh
@@ -7,8 +7,9 @@
 # Prompts for workspace dir, branch prefix, and Jira key, then writes:
 #   <workspace>/CLAUDE.md
 #   <workspace>/.claude/commands/ship.md
+#   <workspace>/.claude/commands/update-repo-map.md
 #
-# Re-running overwrites both files.
+# Re-running overwrites all three files.
 
 set -euo pipefail
 
