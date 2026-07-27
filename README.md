@@ -4,9 +4,11 @@ Shareable version of Marlon's planning / shipping workflow for multi-repo work w
 
 ## What you get
 
-- **`/plan`** — Not a file. Claude Code's built-in plan mode, shaped by `CLAUDE.md`. Plans auto-scaffold worktree setup, branch naming, phased implementation, and ship metadata.
+- **`/plan-ticket`** — Slash command at `.claude/commands/plan-ticket.md`. Takes a ticket key, Jira URL, or free-text description; fetches all repos, researches read-only in plan mode, and presents a phased plan (worktree setup → implement → simplify → test → ship → cleanup) with the `## Ship Metadata` block that `/ship` consumes.
 - **`/ship`** — Slash command at `.claude/commands/ship.md`. Reads the plan's `## Ship Metadata`, commits, pushes, opens PRs across all listed repos, and transitions Jira.
 - **`/update-repo-map`** — Slash command at `.claude/commands/update-repo-map.md`. Scans your workspace for new repos and edits `CLAUDE.md` to add them in the existing category style, classified from their README + build manifest. Flags stale entries without removing them.
+- **`/cleanup-worktrees`** — Slash command at `.claude/commands/cleanup-worktrees.md`. Removes worktrees and local branches whose PRs have merged; reports what's still in flight.
+- **`CLAUDE.md`** — Workspace instructions that enforce the worktree invariants (branch naming, ship metadata, fetch-before-explore) on any planning request, and hold your Repo Map.
 
 ## Install
 
@@ -15,29 +17,38 @@ chmod +x install.sh
 ./install.sh
 ```
 
-You'll be asked for:
+The full install writes:
+- `<workspace>/CLAUDE.md`
+- `<workspace>/.claude/commands/plan-ticket.md`
+- `<workspace>/.claude/commands/ship.md`
+- `<workspace>/.claude/commands/update-repo-map.md`
+- `<workspace>/.claude/commands/cleanup-worktrees.md`
+
+You'll be prompted for:
 - **Workspace dir** — absolute path to the folder containing your repos (e.g. `/Users/alice/code`)
 - **Branch prefix** — your username or initials, used for branch names like `alice/abc-1234-add-rate-limits`
 - **Jira project key** — e.g. `ABC`, or `none` if you don't use Jira
 
-The script writes three files:
-- `<workspace>/CLAUDE.md`
-- `<workspace>/.claude/commands/ship.md`
-- `<workspace>/.claude/commands/update-repo-map.md`
+Open Claude Code with `<workspace>` as its CWD. Type `/` to confirm the commands loaded.
 
-Open Claude Code with `<workspace>` as its CWD. Type `/ship` to confirm it's loaded.
+> **Heads up:** the full install overwrites `<workspace>/CLAUDE.md`. If you already have a CLAUDE.md you want to keep, use `--only` below.
 
-> **Heads up:** the full install overwrites `<workspace>/CLAUDE.md`. If you already have a CLAUDE.md you want to keep, use the standalone install below.
+## Installing individual skills
 
-## Standalone: just `/update-repo-map`
-
-If you only want the repo-map command — no plan/ship workflow, and your existing `CLAUDE.md` left untouched:
+Any skill can be installed on its own — your existing `CLAUDE.md` is never touched:
 
 ```bash
-./install.sh --repo-map-only
+./install.sh --list                                  # see what's available
+./install.sh --only update-repo-map                  # one skill
+./install.sh --only plan-ticket,ship,cleanup-worktrees  # or several
 ```
 
-Prompts for your workspace dir only, and writes just `<workspace>/.claude/commands/update-repo-map.md`. On first run the command scans your workspace, proposes a `## Repo Map` section grouped into categories, and adds it to your `CLAUDE.md` after you confirm (creating the file if you don't have one). Re-run it any time you clone or remove a repo.
+You're only prompted for the values the selected skills actually use (workspace dir always; branch prefix and Jira key only for skills that reference them, like `plan-ticket` and `ship`).
+
+Notes for standalone installs:
+- `/update-repo-map` bootstraps itself: on first run it scans your workspace, proposes a categorized `## Repo Map` section, and adds it to your `CLAUDE.md` after you confirm (creating the file if you don't have one).
+- `/plan-ticket` and `/ship` are a pair — plans emit the `## Ship Metadata` block that `/ship` parses. Installing one without the other works but you lose the handoff.
+- `--repo-map-only` still works as an alias for `--only update-repo-map`.
 
 ## After install — fill in the Repo Map
 
@@ -54,18 +65,18 @@ Or skip the manual fill-in and run `/update-repo-map` — Claude will scan your 
 
 ## Jira / Atlassian MCP
 
-`ship.md` references the Atlassian MCP tools (`getTransitionsForJiraIssue`, `transitionJiraIssue`, `addCommentToJiraIssue`) abstractly. If you have the Atlassian MCP server configured, they'll resolve automatically. If not, Jira transitions will fail silently and ship will continue — PRs still get created.
+`plan-ticket.md` and `ship.md` reference the Atlassian MCP tools (`getJiraIssue`, `getTransitionsForJiraIssue`, `transitionJiraIssue`, `addCommentToJiraIssue`) abstractly. If you have the Atlassian MCP server configured, they'll resolve automatically. If not, planning falls back to asking you to paste the ticket, and ship's Jira transitions fail gracefully — PRs still get created.
 
 If `Jira: none` in the plan's ship metadata, Jira is skipped entirely.
 
 ## How the flow works
 
-1. Ask for a plan: `/plan add rate limits to api-service and worker-service for ABC-1234`
-2. Claude fetches all repos, drafts a plan with worktrees, phases, and ship metadata. You review and accept.
+1. Ask for a plan: `/plan-ticket ABC-1234` (or `/plan-ticket add rate limits to api-service`)
+2. Claude fetches all repos, researches in plan mode, and drafts a plan with worktrees, phases, and ship metadata. You review and accept.
 3. Claude implements the changes in worktrees at `<workspace>/worktrees/<branch>/<repo>`.
 4. You review the diff.
 5. `/ship` — commits, pushes, opens PRs, moves the Jira ticket to In Review, posts PR links on the ticket.
-6. `/cleanup-worktrees` (optional) — once PRs are merged, remove the worktrees.
+6. `/cleanup-worktrees` — once PRs are merged, remove the worktrees and local branches.
 
 ## Customizing further
 
@@ -74,15 +85,17 @@ Edit `CLAUDE.md` freely — it's just instructions for Claude. Things people oft
 - "Testing" section (add a link to your team's test doc, or repo-specific test commands)
 - "Debugging & Investigation" (add pointers to your observability setup)
 
-Edit `.claude/commands/ship.md` to customize commit message format, PR title format, or add extra steps (e.g., notify Slack).
+Edit the files under `.claude/commands/` to customize commit message format, PR title format, or add extra steps (e.g., notify Slack).
 
 ## Files in this repo
 
 | File | Purpose |
 |---|---|
 | `CLAUDE.md` | Templated workspace instructions |
+| `plan-ticket.md` | Templated `/plan-ticket` slash command |
 | `ship.md` | Templated `/ship` slash command |
 | `update-repo-map.md` | Templated `/update-repo-map` slash command |
+| `cleanup-worktrees.md` | Templated `/cleanup-worktrees` slash command |
 | `install.sh` | Renders the templates into your workspace |
 | `README.md` | This file |
 

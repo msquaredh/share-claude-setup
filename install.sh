@@ -1,28 +1,88 @@
 #!/usr/bin/env bash
-# Render templated CLAUDE.md, ship.md, and update-repo-map.md into your workspace.
+# Render the templated CLAUDE.md and slash commands into your workspace.
 #
 # Usage:
-#   ./install.sh                  # full install: CLAUDE.md + /ship + /update-repo-map
-#   ./install.sh --repo-map-only  # just /update-repo-map; never touches CLAUDE.md
+#   ./install.sh                     # full install: CLAUDE.md + every skill
+#   ./install.sh --only <skills>     # comma-separated subset, e.g. --only update-repo-map,cleanup-worktrees
+#   ./install.sh --list              # show available skills
+#   ./install.sh --repo-map-only     # alias for --only update-repo-map
 #
-# Full install prompts for workspace dir, branch prefix, and Jira key, then writes:
-#   <workspace>/CLAUDE.md
-#   <workspace>/.claude/commands/ship.md
-#   <workspace>/.claude/commands/update-repo-map.md
+# Skills install to <workspace>/.claude/commands/<skill>.md. The full install
+# also writes <workspace>/CLAUDE.md; --only NEVER touches CLAUDE.md, so it is
+# safe for a workspace that already has one.
 #
-# Re-running the full install overwrites all three files. --repo-map-only writes
-# only the update-repo-map command file and leaves everything else alone.
+# You are prompted only for the values the selected files actually use:
+# workspace dir always; branch prefix and Jira key only when a selected
+# template contains those placeholders.
+#
+# Re-running overwrites whatever it installs.
 
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-REPO_MAP_ONLY=false
-if [[ "${1:-}" == "--repo-map-only" ]]; then
-  REPO_MAP_ONLY=true
-elif [[ -n "${1:-}" ]]; then
-  echo "Unknown option: $1 (only --repo-map-only is supported)" >&2
-  exit 1
+SKILLS=(plan-ticket ship update-repo-map cleanup-worktrees)
+
+list_skills() {
+  echo "Available skills:"
+  for s in "${SKILLS[@]}"; do
+    # First line of each template is its one-line description
+    echo "  $s — $(head -c 300 "$here/$s.md" | head -n 1 | cut -c1-100)"
+  done
+}
+
+is_skill() {
+  local name="$1" s
+  for s in "${SKILLS[@]}"; do
+    [[ "$s" == "$name" ]] && return 0
+  done
+  return 1
+}
+
+MODE=full
+ONLY=""
+case "${1:-}" in
+  "") MODE=full ;;
+  --list) list_skills; exit 0 ;;
+  --only) ONLY="${2:-}" ; MODE=only ;;
+  --only=*) ONLY="${1#--only=}" ; MODE=only ;;
+  --repo-map-only) ONLY="update-repo-map" ; MODE=only ;;
+  *) echo "Unknown option: $1 (use --list, --only <skills>, or no args for full install)" >&2; exit 1 ;;
+esac
+
+selected=()
+if [[ "$MODE" == "only" ]]; then
+  if [[ -z "$ONLY" ]]; then
+    echo "--only requires a comma-separated skill list, e.g. --only update-repo-map,cleanup-worktrees" >&2
+    list_skills >&2
+    exit 1
+  fi
+  IFS=',' read -ra requested <<< "$ONLY"
+  for s in "${requested[@]}"; do
+    s="$(echo "$s" | tr -d '[:space:]')"
+    [[ -z "$s" ]] && continue
+    if ! is_skill "$s"; then
+      echo "Unknown skill: $s" >&2
+      list_skills >&2
+      exit 1
+    fi
+    selected+=("$s")
+  done
+  if [[ ${#selected[@]} -eq 0 ]]; then
+    echo "No skills selected." >&2
+    exit 1
+  fi
+else
+  selected=("${SKILLS[@]}")
+fi
+
+# Templates being installed this run (used to decide which values to prompt for)
+templates=()
+for s in "${selected[@]}"; do
+  templates+=("$here/$s.md")
+done
+if [[ "$MODE" == "full" ]]; then
+  templates+=("$here/CLAUDE.md")
 fi
 
 read -rp "Workspace dir (absolute path, e.g. /Users/alice/code): " WORKSPACE_DIR
@@ -39,12 +99,19 @@ fi
 
 BRANCH_PREFIX=""
 JIRA_KEY=""
-if ! $REPO_MAP_ONLY; then
-  read -rp "Branch prefix (your username, e.g. alice): " BRANCH_PREFIX
-  read -rp "Jira project key (e.g. ABC, or 'none' if no Jira): " JIRA_KEY
 
-  if [[ -z "$BRANCH_PREFIX" || -z "$JIRA_KEY" ]]; then
-    echo "All three fields are required." >&2
+if grep -q '__BRANCH_PREFIX__' "${templates[@]}"; then
+  read -rp "Branch prefix (your username, e.g. alice): " BRANCH_PREFIX
+  if [[ -z "$BRANCH_PREFIX" ]]; then
+    echo "Branch prefix is required for: ${selected[*]}" >&2
+    exit 1
+  fi
+fi
+
+if grep -q '__JIRA_KEY' "${templates[@]}"; then
+  read -rp "Jira project key (e.g. ABC, or 'none' if no Jira): " JIRA_KEY
+  if [[ -z "$JIRA_KEY" ]]; then
+    echo "Jira project key is required for: ${selected[*]}" >&2
     exit 1
   fi
 fi
@@ -63,28 +130,31 @@ render() {
 
 mkdir -p "$WORKSPACE_DIR/.claude/commands"
 
-render "$here/update-repo-map.md" > "$WORKSPACE_DIR/.claude/commands/update-repo-map.md"
+installed=()
+for s in "${selected[@]}"; do
+  render "$here/$s.md" > "$WORKSPACE_DIR/.claude/commands/$s.md"
+  installed+=("$WORKSPACE_DIR/.claude/commands/$s.md")
+done
 
-if $REPO_MAP_ONLY; then
-  echo
-  echo "Installed:"
-  echo "  $WORKSPACE_DIR/.claude/commands/update-repo-map.md"
-  echo
-  echo "Open Claude Code with $WORKSPACE_DIR as CWD and run /update-repo-map."
-  echo "If your CLAUDE.md has no '## Repo Map' section yet (or you have no CLAUDE.md),"
-  echo "the first run will propose one and create it after you confirm."
-  exit 0
+if [[ "$MODE" == "full" ]]; then
+  render "$here/CLAUDE.md" > "$WORKSPACE_DIR/CLAUDE.md"
+  installed+=("$WORKSPACE_DIR/CLAUDE.md")
 fi
-
-render "$here/CLAUDE.md" > "$WORKSPACE_DIR/CLAUDE.md"
-render "$here/ship.md" > "$WORKSPACE_DIR/.claude/commands/ship.md"
 
 echo
 echo "Installed:"
-echo "  $WORKSPACE_DIR/CLAUDE.md"
-echo "  $WORKSPACE_DIR/.claude/commands/ship.md"
-echo "  $WORKSPACE_DIR/.claude/commands/update-repo-map.md"
+for f in "${installed[@]}"; do
+  echo "  $f"
+done
 echo
-echo "Open Claude Code with $WORKSPACE_DIR as CWD. Type /ship to confirm it loaded."
-echo "Edit $WORKSPACE_DIR/CLAUDE.md to fill in the Repo Map section with your repos,"
-echo "or run /update-repo-map to have Claude scan the workspace and populate it."
+echo "Open Claude Code with $WORKSPACE_DIR as CWD and type / to see the commands."
+if [[ "$MODE" == "full" ]]; then
+  echo "Edit $WORKSPACE_DIR/CLAUDE.md to fill in the Repo Map section with your repos,"
+  echo "or run /update-repo-map to have Claude scan the workspace and populate it."
+else
+  echo "Your CLAUDE.md was not touched."
+  if is_skill update-repo-map && [[ " ${selected[*]} " == *" update-repo-map "* ]]; then
+    echo "If your CLAUDE.md has no '## Repo Map' section yet (or you have no CLAUDE.md),"
+    echo "the first /update-repo-map run will propose one and create it after you confirm."
+  fi
+fi
