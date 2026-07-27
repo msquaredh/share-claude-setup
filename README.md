@@ -27,6 +27,18 @@ The script writes three files:
 
 Open Claude Code with `<workspace>` as its CWD. Type `/ship` to confirm it's loaded.
 
+> **Heads up:** the full install overwrites `<workspace>/CLAUDE.md`. If you already have a CLAUDE.md you want to keep, use the standalone install below.
+
+## Standalone: just `/update-repo-map`
+
+If you only want the repo-map command — no plan/ship workflow, and your existing `CLAUDE.md` left untouched:
+
+```bash
+./install.sh --repo-map-only
+```
+
+Prompts for your workspace dir only, and writes just `<workspace>/.claude/commands/update-repo-map.md`. On first run the command scans your workspace, proposes a `## Repo Map` section grouped into categories, and adds it to your `CLAUDE.md` after you confirm (creating the file if you don't have one). Re-run it any time you clone or remove a repo.
+
 ## After install — fill in the Repo Map
 
 `CLAUDE.md` has a `## Repo Map` section with a single placeholder bullet. Replace it with one bullet per repo you work in. The planner uses these as hints to pick relevant repos without grepping everything.

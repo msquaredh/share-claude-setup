@@ -15,7 +15,9 @@ Run this whenever a new repo has been cloned into `__WORKSPACE_DIR__/` or an old
        done
    ```
 
-2. **List mapped repos.** Read `__WORKSPACE_DIR__/CLAUDE.md` and extract every repo name from the `## Repo Map` section — the bolded token at the start of each bullet (e.g. `**api-service**`).
+2. **List mapped repos.** Read `__WORKSPACE_DIR__/CLAUDE.md` and extract every repo name from the `## Repo Map` section — the bolded token at the start of each bullet (e.g. `**api-service**`). Entries under an `### Excluded from workflows` subheading still count as mapped; they are listed there intentionally.
+
+   **First run:** if `CLAUDE.md` doesn't exist or has no `## Repo Map` section, treat every on-disk repo as new and continue — step 5 covers proposing the section from scratch.
 
 3. **Diff.**
    - **New on disk, not in map** → add.
@@ -29,6 +31,8 @@ Run this whenever a new repo has been cloned into `__WORKSPACE_DIR__/` or an old
 
 5. **Classify into an existing category.** Read the headings inside `## Repo Map`. Use whatever categories the user has already set up (examples: `### Client App`, `### Backend Services`, `### Shared Libraries`, `### Data Processing Workers`, `### Infrastructure & Tooling`). If a repo doesn't cleanly fit any existing category, ask the user where it belongs rather than inventing a new one. If the map has no subheadings and is just a flat bullet list, append to that list.
 
+   **First run (no `## Repo Map` yet):** group the inspected repos into a few sensible categories — or a flat list if there are only a handful — show the user the proposed section, and confirm the category names before writing. Non-project repos that happen to live in the workspace (dotfiles, editor config) go under `### Excluded from workflows` so future runs leave them alone.
+
 6. **Write entries in the existing style.** Match whatever bullet format the user is already using. A common style is:
    ```
    - **<repo-name>** — <one-or-two-sentence description of purpose, stack, key consumers/dependencies>
@@ -37,9 +41,9 @@ Run this whenever a new repo has been cloned into `__WORKSPACE_DIR__/` or an old
    - Lead with WHAT the service does in one phrase.
    - Mention the stack if non-obvious for that category (e.g. "Maven/Java" when most peers are Gradle/Kotlin).
    - Mention notable consumers or upstream dependencies if it clarifies the role.
-   - If there's a relevant gotcha (fast-lane deploy, special build step, FBG-wide vs project-specific), tuck it at the end.
+   - If there's a relevant gotcha (fast-lane deploy, special build step, org-wide vs team-owned), tuck it at the end.
 
-7. **Edit `__WORKSPACE_DIR__/CLAUDE.md`** using the `Edit` tool. Insert each new entry at the end of its category's bullet list. Do not reorder existing entries.
+7. **Edit `__WORKSPACE_DIR__/CLAUDE.md`** using the `Edit` tool. Insert each new entry at the end of its category's bullet list. Do not reorder existing entries. On first run, append the new `## Repo Map` section to `CLAUDE.md` (creating the file if it doesn't exist).
 
 8. **Report.** Print a short summary:
    - **Added:** `<repo>` → `<category>`
@@ -49,6 +53,6 @@ Run this whenever a new repo has been cloned into `__WORKSPACE_DIR__/` or an old
 ## Hard rules
 
 - Never remove an existing map entry without explicit user confirmation.
-- Never invent new categories; ask if a repo doesn't fit.
+- Never invent new categories; ask if a repo doesn't fit. (Exception: the first-run bootstrap, where you propose the initial set and the user confirms it.)
 - The description comes from the repo's own README / build files — do not guess from the name alone. If the repo has neither README nor build manifest, ask the user what it is.
 - Do not fetch from origin or modify the repo — this command is read-only against each repo.
