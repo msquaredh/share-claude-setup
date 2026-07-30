@@ -12,8 +12,8 @@
 # safe for a workspace that already has one.
 #
 # You are prompted only for the values the selected files actually use:
-# workspace dir always; branch prefix and Jira key only when a selected
-# template contains those placeholders.
+# workspace dir always; branch prefix, Jira key, and Datadog env tags only
+# when a selected template contains those placeholders.
 #
 # Re-running overwrites whatever it installs.
 
@@ -21,13 +21,22 @@ set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-SKILLS=(plan-ticket ship update-repo-map cleanup-worktrees)
+SKILLS=(plan-ticket ship update-repo-map cleanup-worktrees deploy-verify)
+
+skill_desc() {
+  # Description = frontmatter `description:` if the file starts with ---, else its first line
+  local f="$1"
+  if [[ "$(head -n 1 "$f")" == "---" ]]; then
+    sed -n 's/^description: *//p' "$f" | head -n 1
+  else
+    head -n 1 "$f"
+  fi
+}
 
 list_skills() {
   echo "Available skills:"
   for s in "${SKILLS[@]}"; do
-    # First line of each template is its one-line description
-    echo "  $s — $(head -c 300 "$here/$s.md" | head -n 1 | cut -c1-100)"
+    echo "  $s — $(skill_desc "$here/$s.md" | cut -c1-100)"
   done
 }
 
@@ -118,6 +127,21 @@ fi
 
 JIRA_KEY_LOWER="$(echo "$JIRA_KEY" | tr '[:upper:]' '[:lower:]')"
 
+ENV_TAG_DEV=""
+ENV_TAG_TEST=""
+ENV_TAG_PROD=""
+
+if grep -q '__ENV_TAG_' "${templates[@]}"; then
+  echo "Datadog env tags — the value your org puts in the 'env' tag per environment"
+  echo "(press Enter to accept the default):"
+  read -rp "  dev env tag [dev]: " ENV_TAG_DEV
+  read -rp "  test env tag [test]: " ENV_TAG_TEST
+  read -rp "  prod env tag [prod]: " ENV_TAG_PROD
+  ENV_TAG_DEV="${ENV_TAG_DEV:-dev}"
+  ENV_TAG_TEST="${ENV_TAG_TEST:-test}"
+  ENV_TAG_PROD="${ENV_TAG_PROD:-prod}"
+fi
+
 render() {
   local src="$1"
   sed \
@@ -125,6 +149,9 @@ render() {
     -e "s|__BRANCH_PREFIX__|$BRANCH_PREFIX|g" \
     -e "s|__JIRA_KEY_LOWER__|$JIRA_KEY_LOWER|g" \
     -e "s|__JIRA_KEY__|$JIRA_KEY|g" \
+    -e "s|__ENV_TAG_DEV__|$ENV_TAG_DEV|g" \
+    -e "s|__ENV_TAG_TEST__|$ENV_TAG_TEST|g" \
+    -e "s|__ENV_TAG_PROD__|$ENV_TAG_PROD|g" \
     "$src"
 }
 
