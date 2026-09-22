@@ -35,6 +35,7 @@ Clean up git worktrees for branches that have been merged.
    - Any errors encountered (e.g., uncommitted changes in a worktree)
 
 ## Important
+- If the session's working directory is inside a worktree about to be removed, first move it back out (`mcp__ccd_directory__change_directory` to `__WORKSPACE_DIR__`) so the session isn't left pointing at a deleted path
 - If a worktree has uncommitted changes, warn the user and skip it — do NOT force remove
 - Use `git worktree remove` (not `rm -rf`) to properly unregister the worktree
 - If `branch -d` fails (branch not fully merged), warn the user rather than using `-D`

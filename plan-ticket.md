@@ -67,7 +67,9 @@ git -C __WORKSPACE_DIR__/<repo> worktree add \
   -b <branch-name> origin/<default-branch>
 ```
 
-**Phase 2 — Implement** — ordered list of changes across repos, with dependencies noted. Independent changes (no cross-repo dependency) run in parallel via separate agents, each in its own worktree. When repo B consumes a new field from repo A, sequence them: upstream first, then downstream.
+Then **move the session into the worktree** so the app's diff panel tracks the change and review happens in this UI (no IDE needed): call `mcp__ccd_directory__change_directory` with `__WORKSPACE_DIR__/worktrees/<branch-name>/<repo>`. With multiple repos, point at the one carrying the most implementation work — the diff panel only shows that repo. (Claude desktop app only; skip if the tool is unavailable. Session memory stays keyed to the directory the session started in, so nothing durable lands in the worktree; do not create context/settings files there.)
+
+**Phase 2 — Implement** — ordered list of changes across repos, with dependencies noted. Independent changes (no cross-repo dependency) run in parallel via separate agents, each in its own worktree. When repo B consumes a new field from repo A, sequence them: upstream first, then downstream. As new files are created, mark them intent-to-add in their worktree (`git add -N <files>`) — untracked files are invisible to the diff panel; this stages no content and `/ship` still owns commits.
 
 **Phase 2.5 — Simplify** — after implementation, before tests, run `/simplify` on each changed repo (in parallel when repos are independent). Catches reuse opportunities, behavioral inconsistencies, and efficiency issues before they ship.
 
@@ -75,7 +77,7 @@ git -C __WORKSPACE_DIR__/<repo> worktree add \
 
 **Phase 4 — Ship** — user reviews changes, then runs `/ship`.
 
-**Phase 5 — Cleanup** — worktree removal and branch deletion (or `/cleanup-worktrees`):
+**Phase 5 — Cleanup** — first move the session back out of the worktree (`mcp__ccd_directory__change_directory` to `__WORKSPACE_DIR__`) so it isn't left pointing at a deleted path, then worktree removal and branch deletion (or `/cleanup-worktrees`):
 ```bash
 git -C __WORKSPACE_DIR__/<repo> worktree remove \
   __WORKSPACE_DIR__/worktrees/<branch-name>/<repo>

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Render the templated CLAUDE.md and slash commands into your workspace.
+# Render the templated CLAUDE.md and skills into your workspace.
 #
 # Usage:
 #   ./install.sh                     # full install: CLAUDE.md + every skill
@@ -7,9 +7,12 @@
 #   ./install.sh --list              # show available skills
 #   ./install.sh --repo-map-only     # alias for --only update-repo-map
 #
-# Skills install to <workspace>/.claude/commands/<skill>.md. The full install
-# also writes <workspace>/CLAUDE.md; --only NEVER touches CLAUDE.md, so it is
-# safe for a workspace that already has one.
+# Two template layouts are supported, mirroring Claude Code's own:
+#   <skill>.md          -> <workspace>/.claude/commands/<skill>.md
+#   <skill>/SKILL.md    -> <workspace>/.claude/skills/<skill>/SKILL.md
+#
+# The full install also writes <workspace>/CLAUDE.md; --only NEVER touches
+# CLAUDE.md, so it is safe for a workspace that already has one.
 #
 # You are prompted only for the values the selected files actually use:
 # workspace dir always; branch prefix, Jira key, and Datadog env tags only
@@ -21,7 +24,30 @@ set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-SKILLS=(plan-ticket ship update-repo-map cleanup-worktrees deploy-verify)
+SKILLS=(plan-ticket ship ship-ticket update-repo-map pull-repos cleanup-worktrees deploy-verify rca)
+
+skill_src() {
+  # Template path for a skill: flat command file or SKILL.md directory
+  local s="$1"
+  if [[ -f "$here/$s.md" ]]; then
+    echo "$here/$s.md"
+  elif [[ -f "$here/$s/SKILL.md" ]]; then
+    echo "$here/$s/SKILL.md"
+  else
+    echo "Template missing for skill: $s" >&2
+    exit 1
+  fi
+}
+
+skill_dest() {
+  # Install path inside the workspace, matching the template layout
+  local s="$1"
+  if [[ -f "$here/$s.md" ]]; then
+    echo "$WORKSPACE_DIR/.claude/commands/$s.md"
+  else
+    echo "$WORKSPACE_DIR/.claude/skills/$s/SKILL.md"
+  fi
+}
 
 skill_desc() {
   # Description = frontmatter `description:` if the file starts with ---, else its first line
@@ -36,7 +62,7 @@ skill_desc() {
 list_skills() {
   echo "Available skills:"
   for s in "${SKILLS[@]}"; do
-    echo "  $s — $(skill_desc "$here/$s.md" | cut -c1-100)"
+    echo "  $s — $(skill_desc "$(skill_src "$s")" | cut -c1-100)"
   done
 }
 
@@ -88,7 +114,7 @@ fi
 # Templates being installed this run (used to decide which values to prompt for)
 templates=()
 for s in "${selected[@]}"; do
-  templates+=("$here/$s.md")
+  templates+=("$(skill_src "$s")")
 done
 if [[ "$MODE" == "full" ]]; then
   templates+=("$here/CLAUDE.md")
@@ -155,12 +181,12 @@ render() {
     "$src"
 }
 
-mkdir -p "$WORKSPACE_DIR/.claude/commands"
-
 installed=()
 for s in "${selected[@]}"; do
-  render "$here/$s.md" > "$WORKSPACE_DIR/.claude/commands/$s.md"
-  installed+=("$WORKSPACE_DIR/.claude/commands/$s.md")
+  dest="$(skill_dest "$s")"
+  mkdir -p "$(dirname "$dest")"
+  render "$(skill_src "$s")" > "$dest"
+  installed+=("$dest")
 done
 
 if [[ "$MODE" == "full" ]]; then
@@ -180,8 +206,13 @@ if [[ "$MODE" == "full" ]]; then
   echo "or run /update-repo-map to have Claude scan the workspace and populate it."
 else
   echo "Your CLAUDE.md was not touched."
-  if is_skill update-repo-map && [[ " ${selected[*]} " == *" update-repo-map "* ]]; then
+  if [[ " ${selected[*]} " == *" update-repo-map "* ]]; then
     echo "If your CLAUDE.md has no '## Repo Map' section yet (or you have no CLAUDE.md),"
     echo "the first /update-repo-map run will propose one and create it after you confirm."
+  fi
+  if [[ " ${selected[*]} " == *" ship-ticket "* ]]; then
+    echo "/ship-ticket relies on the CLAUDE.md sections 'Verification Before Claiming',"
+    echo "'Shell & Build Conventions', 'Schema & Data Model Conventions', and 'Code Changes'."
+    echo "Copy them from this repo's CLAUDE.md into yours if you don't have equivalents."
   fi
 fi
