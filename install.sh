@@ -10,6 +10,8 @@
 # Two template layouts are supported, mirroring Claude Code's own:
 #   <skill>.md          -> <workspace>/.claude/commands/<skill>.md
 #   <skill>/SKILL.md    -> <workspace>/.claude/skills/<skill>/SKILL.md
+#                          (plus every other file in <skill>/, e.g. rca's
+#                          notebook-cells.md and build_cells.py)
 #
 # The full install also writes <workspace>/CLAUDE.md; --only NEVER touches
 # CLAUDE.md, so it is safe for a workspace that already has one.
@@ -39,13 +41,23 @@ skill_src() {
   fi
 }
 
-skill_dest() {
-  # Install path inside the workspace, matching the template layout
+skill_files() {
+  # Every template file for a skill: the flat command file, or every file in its skill directory
   local s="$1"
+  if [[ -f "$here/$s.md" ]]; then
+    echo "$here/$s.md"
+  else
+    find "$here/$s" -type f ! -path '*/__pycache__/*' ! -name '.DS_Store' | sort
+  fi
+}
+
+skill_dest() {
+  # Install path inside the workspace for one template file, matching the template layout
+  local s="$1" f="$2"
   if [[ -f "$here/$s.md" ]]; then
     echo "$WORKSPACE_DIR/.claude/commands/$s.md"
   else
-    echo "$WORKSPACE_DIR/.claude/skills/$s/SKILL.md"
+    echo "$WORKSPACE_DIR/.claude/skills/$s/${f#"$here/$s/"}"
   fi
 }
 
@@ -114,7 +126,10 @@ fi
 # Templates being installed this run (used to decide which values to prompt for)
 templates=()
 for s in "${selected[@]}"; do
-  templates+=("$(skill_src "$s")")
+  skill_src "$s" > /dev/null
+  while IFS= read -r f; do
+    templates+=("$f")
+  done < <(skill_files "$s")
 done
 if [[ "$MODE" == "full" ]]; then
   templates+=("$here/CLAUDE.md")
@@ -183,10 +198,12 @@ render() {
 
 installed=()
 for s in "${selected[@]}"; do
-  dest="$(skill_dest "$s")"
-  mkdir -p "$(dirname "$dest")"
-  render "$(skill_src "$s")" > "$dest"
-  installed+=("$dest")
+  while IFS= read -r f; do
+    dest="$(skill_dest "$s" "$f")"
+    mkdir -p "$(dirname "$dest")"
+    render "$f" > "$dest"
+    installed+=("$dest")
+  done < <(skill_files "$s")
 done
 
 if [[ "$MODE" == "full" ]]; then

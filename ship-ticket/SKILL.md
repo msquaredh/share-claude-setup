@@ -1,6 +1,6 @@
 ---
 name: ship-ticket
-description: Drive a Jira ticket end to end to a merged-ready PR with one human gate (plan approval): fetch ticket → worktree → plan → implement → test loop → adversarial self-review → PR → CI green. Use when the user says "ship __JIRA_KEY__-XXXX end to end" or invokes /ship-ticket.
+description: Drive a Jira ticket end to end to a CI-green draft PR with one human gate (plan approval): fetch ticket → worktree → plan → implement → test loop → adversarial self-review → PR → CI green. Use when the user says "ship __JIRA_KEY__-XXXX end to end" or invokes /ship-ticket.
 ---
 
 ## Input
@@ -43,7 +43,7 @@ Spawn a general-purpose subagent with the full diff (`git -C <worktree> diff ori
 Fix confirmed findings (re-run Phase 4 after fixes). Dismissed findings go in the final report's judgment calls.
 
 ## Phase 6 — Ship + CI loop
-1. Follow the `/ship` procedure (`.claude/commands/ship.md`): commit (repo formatters first), push, create PRs (title `__JIRA_KEY__-XXXX: <desc>`; body = concise executive bullets, no blame/attribution for the bug being fixed), transition Jira to In Review, comment PR links on the ticket.
+1. Follow the `/ship` procedure (`.claude/commands/ship.md`): commit (repo formatters first), push, create PRs **as drafts** (`gh pr create --draft`; this overrides `/ship`, which opens them live) (title `__JIRA_KEY__-XXXX: <desc>`; body = concise executive bullets, no blame/attribution for the bug being fixed), transition Jira to In Review, comment PR links on the ticket.
 2. If the plan touches a shared library consumed by other repos in the plan: its PR must merge and publish before the downstream PRs can merge — note the required version bump in the consumers and flag this ordering in the report.
 3. Poll CI: `gh pr checks <pr-url> --repo <org/repo> --watch` (or loop every few minutes). On failure:
    - Pull the failing job logs (`gh run view <id> --log-failed`).
@@ -52,7 +52,7 @@ Fix confirmed findings (re-run Phase 4 after fixes). Dismissed findings go in th
    - After 3 distinct fix attempts on the same check, STOP and report state instead of thrashing.
 
 ## Phase 7 — Final report
-- Ship summary table (repo | PR | CI status) plus **raw PR URLs** on their own lines for chat pasting. Jira keys and PRs as markdown links elsewhere.
+- Ship summary table (repo | PR | CI status), noting the PRs are drafts (`gh pr ready <pr-url>` to publish), plus **raw PR URLs** on their own lines for chat pasting. Jira keys and PRs as markdown links elsewhere.
 - Diff summary per repo: `git -C <worktree> diff --stat origin/<default-branch>...HEAD`.
 - Test evidence: the actual final suite summary line per repo.
 - **Judgment calls** — every decision the user might disagree with: scope interpretations, naming choices, dismissed reviewer findings, flake-vs-real CI retry decisions, convention picks, anything the ticket left ambiguous that was resolved without asking.
